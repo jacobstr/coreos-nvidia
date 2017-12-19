@@ -68,9 +68,24 @@ pull: validate
 	echo "Trying to pull previous build ..."
 	-docker pull $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(DOCKER_REPOSITORY):$(COREOS_VERSION)
 
-build: validate
-	echo "Building Docker Image ..." && \
+builder: validate
+	echo "Building Builder Image ..." && \
 	docker build \
+		--target BUILD \
+		--cache-from $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(DOCKER_REPOSITORY)-builder:$(COREOS_VERSION) \
+		--build-arg COREOS_RELEASE_CHANNEL=$(COREOS_RELEASE_CHANNEL) \
+		--build-arg COREOS_VERSION=$(COREOS_VERSION) \
+		--build-arg NVIDIA_DRIVER_VERSION=$(NVIDIA_DRIVER_VERSION) \
+		--build-arg KERNEL_VERSION=$(KERNEL_VERSION) \
+		--build-arg KERNEL_TAG=$(KERNEL_TAG) \
+		--tag $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(DOCKER_REPOSITORY)-builder:$(COREOS_VERSION) \
+		--file $(WORKDIR)/Dockerfile . \
+
+build: validate builder
+	# Features a multi-stage build cache-from workaround https://github.com/moby/moby/issues/34715
+	echo "Building Installer Image ..." && \
+	docker build \
+		--cache-from $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(DOCKER_REPOSITORY)-builder:$(COREOS_VERSION) \
 		--cache-from $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(DOCKER_REPOSITORY):$(COREOS_VERSION) \
 		--build-arg COREOS_RELEASE_CHANNEL=$(COREOS_RELEASE_CHANNEL) \
 		--build-arg COREOS_VERSION=$(COREOS_VERSION) \
